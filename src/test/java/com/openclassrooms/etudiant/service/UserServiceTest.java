@@ -28,6 +28,8 @@ public class UserServiceTest {
     private UserRepository userRepository;
     @Mock
     private PasswordEncoder passwordEncoder;
+    @Mock
+    private JwtService jwtService;
     @InjectMocks
     private UserService userService;
 
@@ -74,5 +76,46 @@ public class UserServiceTest {
         ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
         verify(userRepository).save(userCaptor.capture());
         assertThat(userCaptor.getValue()).isEqualTo(user);
+    }
+
+    @Test
+    void loginReturnsTokenForMatchingPassword() {
+        User user = new User();
+        user.setPassword("stored-hash");
+        when(userRepository.findByLogin(LOGIN)).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches(PASSWORD, "stored-hash")).thenReturn(true);
+        when(jwtService.generateToken(any())).thenReturn("signed-token");
+
+        assertThat(userService.login(LOGIN, PASSWORD)).isEqualTo("signed-token");
+        ArgumentCaptor<org.springframework.security.core.userdetails.UserDetails> captor =
+                ArgumentCaptor.forClass(org.springframework.security.core.userdetails.UserDetails.class);
+        verify(jwtService).generateToken(captor.capture());
+        assertThat(captor.getValue().getUsername()).isEqualTo(LOGIN);
+    }
+
+    @Test
+    void loginRejectsWrongPasswordWithoutIssuingToken() {
+        User user = new User();
+        user.setPassword("stored-hash");
+        when(userRepository.findByLogin(LOGIN)).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches(PASSWORD, "stored-hash")).thenReturn(false);
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> userService.login(LOGIN, PASSWORD))
+                .isInstanceOf(IllegalArgumentException.class).hasMessage("Invalid credentials");
+        org.mockito.Mockito.verifyNoInteractions(jwtService);
+    }
+
+    @Test
+    void loginRejectsUnknownUser() {
+        when(userRepository.findByLogin(LOGIN)).thenReturn(Optional.empty());
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> userService.login(LOGIN, PASSWORD))
+                .isInstanceOf(IllegalArgumentException.class).hasMessage("Invalid credentials");
+        org.mockito.Mockito.verifyNoInteractions(passwordEncoder, jwtService);
+    }
+
+    @Test
+    void loginRejectsNullCredentialsBeforeAccessingRepository() {
+        Assertions.assertThrows(IllegalArgumentException.class, () -> userService.login(null, PASSWORD));
+        Assertions.assertThrows(IllegalArgumentException.class, () -> userService.login(LOGIN, null));
+        org.mockito.Mockito.verifyNoInteractions(userRepository, passwordEncoder, jwtService);
     }
 }

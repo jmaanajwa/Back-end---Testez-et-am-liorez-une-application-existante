@@ -1,0 +1,753 @@
+{
+  "info": {
+    "name": "Etudiant Backend - Tests API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Executer toute la collection dans l ordre. Couvre les 7 routes metier et /actuator/health. Cree un compte unique par execution et supprime uniquement l etudiant cree par ce scenario. Les autres endpoints techniques Actuator ne font pas partie de ce scenario."
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080"
+    },
+    {
+      "key": "testLogin",
+      "value": ""
+    },
+    {
+      "key": "testPassword",
+      "value": ""
+    },
+    {
+      "key": "studentEmail",
+      "value": ""
+    },
+    {
+      "key": "token",
+      "value": ""
+    },
+    {
+      "key": "studentId",
+      "value": ""
+    }
+  ],
+  "event": [
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "pm.test('Pas d erreur serveur', () => pm.expect(pm.response.code).to.be.below(500));"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "01 - Sante du backend",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/actuator/health",
+        "auth": {
+          "type": "noauth"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Statut HTTP 200', () => pm.response.to.have.status(200));",
+              "pm.test('Service UP', () => pm.expect(pm.response.json().status).to.eql('UP'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 - Inscription du compte de test",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/register",
+        "auth": {
+          "type": "noauth"
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"firstName\": \"Test\",\n  \"lastName\": \"Postman\",\n  \"login\": \"{{testLogin}}\",\n  \"password\": \"{{testPassword}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const suffix = pm.variables.replaceIn('{{$guid}}');",
+              "pm.collectionVariables.set('testLogin', 'postman-' + suffix);",
+              "pm.collectionVariables.set('testPassword', 'Api-Test!-' + suffix);",
+              "pm.collectionVariables.set('studentEmail', 'postman-' + suffix + '@example.com');",
+              "pm.collectionVariables.set('token', '');",
+              "pm.collectionVariables.set('studentId', '');"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Statut HTTP 201', () => pm.response.to.have.status(201));",
+              "if (pm.response.code !== 201) pm.execution.setNextRequest(null);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "03 - Inscription en doublon refusee",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/register",
+        "auth": {
+          "type": "noauth"
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"firstName\": \"Test\",\n  \"lastName\": \"Postman\",\n  \"login\": \"{{testLogin}}\",\n  \"password\": \"{{testPassword}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Statut HTTP 400', () => pm.response.to.have.status(400));",
+              ""
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "04 - Inscription incomplete refusee",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/register",
+        "auth": {
+          "type": "noauth"
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Statut HTTP 400', () => pm.response.to.have.status(400));",
+              ""
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "05 - Mauvais mot de passe refuse",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": "{{baseUrl}}/api/login",
+        "auth": {
+          "type": "noauth"
+        },
+        "body": {
+          "mode": "urlencoded",
+          "urlencoded": [
+            {
+              "key": "login",
+              "value": "{{testLogin}}",
+              "type": "text"
+            },
+            {
+              "key": "password",
+              "value": "incorrect",
+              "type": "text"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Statut HTTP 400', () => pm.response.to.have.status(400));",
+              ""
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "06 - Connexion et recuperation du JWT",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": "{{baseUrl}}/api/login",
+        "auth": {
+          "type": "noauth"
+        },
+        "body": {
+          "mode": "urlencoded",
+          "urlencoded": [
+            {
+              "key": "login",
+              "value": "{{testLogin}}",
+              "type": "text"
+            },
+            {
+              "key": "password",
+              "value": "{{testPassword}}",
+              "type": "text"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Statut HTTP 200', () => pm.response.to.have.status(200));",
+              "const token = pm.response.text().trim();",
+              "const valid = pm.response.code === 200 && /^[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+$/.test(token);",
+              "pm.test('JWT present dans la reponse texte', () => pm.expect(valid).to.eql(true));",
+              "if (valid) pm.collectionVariables.set('token', token);",
+              "else pm.execution.setNextRequest(null);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "07 - GET sans JWT refuse",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/students",
+        "auth": {
+          "type": "noauth"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Statut HTTP 401', () => pm.response.to.have.status(401));",
+              ""
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "08 - POST sans JWT refuse",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/students",
+        "auth": {
+          "type": "noauth"
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"firstName\": \"Test\",\n  \"lastName\": \"Postman\",\n  \"email\": \"{{studentEmail}}\",\n  \"className\": \"TEST-API\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Statut HTTP 401', () => pm.response.to.have.status(401));",
+              ""
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "09 - GET sans JWT refuse",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/students/0",
+        "auth": {
+          "type": "noauth"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Statut HTTP 401', () => pm.response.to.have.status(401));",
+              ""
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "10 - PUT sans JWT refuse",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/students/0",
+        "auth": {
+          "type": "noauth"
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"firstName\": \"Test\",\n  \"lastName\": \"Postman\",\n  \"email\": \"{{studentEmail}}\",\n  \"className\": \"TEST-API\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Statut HTTP 401', () => pm.response.to.have.status(401));",
+              ""
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "11 - DELETE sans JWT refuse",
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": "{{baseUrl}}/api/students/0",
+        "auth": {
+          "type": "noauth"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Statut HTTP 401', () => pm.response.to.have.status(401));",
+              ""
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "12 - JWT invalide refuse",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/students",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "invalid.token.value",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Statut HTTP 401', () => pm.response.to.have.status(401));",
+              ""
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "13 - Liste des etudiants",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/students"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Statut HTTP 200', () => pm.response.to.have.status(200));",
+              "pm.test('Reponse sous forme de tableau', () => pm.expect(pm.response.json()).to.be.an('array'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "14 - Creation de l etudiant de test",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/students",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"firstName\": \"Test\",\n  \"lastName\": \"Postman\",\n  \"email\": \"{{studentEmail}}\",\n  \"className\": \"TEST-API\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Statut HTTP 201', () => pm.response.to.have.status(201));",
+              "let data;",
+              "try { data = pm.response.json(); } catch (_) { data = {}; }",
+              "const valid = pm.response.code === 201 && Number.isSafeInteger(data.id) && data.id > 0;",
+              "pm.test('Identifiant cree valide', () => pm.expect(valid).to.eql(true));",
+              "if (valid) pm.collectionVariables.set('studentId', String(data.id));",
+              "else pm.execution.setNextRequest(null);",
+              "pm.test('Les champs de l etudiant correspondent', () => {",
+              "  const data = pm.response.json();",
+              "  const expected = JSON.parse(pm.variables.replaceIn(\"{\\\"firstName\\\":\\\"Test\\\",\\\"lastName\\\":\\\"Postman\\\",\\\"email\\\":\\\"{{studentEmail}}\\\",\\\"className\\\":\\\"TEST-API\\\"}\"));",
+              "  Object.keys(expected).forEach(key => pm.expect(data[key], key).to.eql(expected[key]));",
+              "  pm.expect(data.id).to.eql(Number(pm.collectionVariables.get('studentId')));",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "15 - Lecture de l etudiant cree",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/students/{{studentId}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Statut HTTP 200', () => pm.response.to.have.status(200));",
+              "pm.test('Les champs de l etudiant correspondent', () => {",
+              "  const data = pm.response.json();",
+              "  const expected = JSON.parse(pm.variables.replaceIn(\"{\\\"firstName\\\":\\\"Test\\\",\\\"lastName\\\":\\\"Postman\\\",\\\"email\\\":\\\"{{studentEmail}}\\\",\\\"className\\\":\\\"TEST-API\\\"}\"));",
+              "  Object.keys(expected).forEach(key => pm.expect(data[key], key).to.eql(expected[key]));",
+              "  pm.expect(data.id).to.eql(Number(pm.collectionVariables.get('studentId')));",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "16 - Etudiant present dans la liste",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/students"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Statut HTTP 200', () => pm.response.to.have.status(200));",
+              "pm.test('La liste contient notre etudiant', () => {",
+              "  const data = pm.response.json();",
+              "  pm.expect(data).to.be.an('array');",
+              "  pm.expect(data.some(s => s.id === Number(pm.collectionVariables.get('studentId')) && s.email === pm.collectionVariables.get('studentEmail'))).to.eql(true);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "17 - Modification de l etudiant",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/students/{{studentId}}",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"firstName\": \"Test modifie\",\n  \"lastName\": \"Postman\",\n  \"email\": \"{{studentEmail}}\",\n  \"className\": \"TEST-API-UPDATE\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Statut HTTP 200', () => pm.response.to.have.status(200));",
+              "pm.test('Les champs de l etudiant correspondent', () => {",
+              "  const data = pm.response.json();",
+              "  const expected = JSON.parse(pm.variables.replaceIn(\"{\\\"firstName\\\":\\\"Test modifie\\\",\\\"lastName\\\":\\\"Postman\\\",\\\"email\\\":\\\"{{studentEmail}}\\\",\\\"className\\\":\\\"TEST-API-UPDATE\\\"}\"));",
+              "  Object.keys(expected).forEach(key => pm.expect(data[key], key).to.eql(expected[key]));",
+              "  pm.expect(data.id).to.eql(Number(pm.collectionVariables.get('studentId')));",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "18 - Verification de la modification en base",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/students/{{studentId}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Statut HTTP 200', () => pm.response.to.have.status(200));",
+              "pm.test('Les champs de l etudiant correspondent', () => {",
+              "  const data = pm.response.json();",
+              "  const expected = JSON.parse(pm.variables.replaceIn(\"{\\\"firstName\\\":\\\"Test modifie\\\",\\\"lastName\\\":\\\"Postman\\\",\\\"email\\\":\\\"{{studentEmail}}\\\",\\\"className\\\":\\\"TEST-API-UPDATE\\\"}\"));",
+              "  Object.keys(expected).forEach(key => pm.expect(data[key], key).to.eql(expected[key]));",
+              "  pm.expect(data.id).to.eql(Number(pm.collectionVariables.get('studentId')));",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "19 - Suppression de l etudiant de test",
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": "{{baseUrl}}/api/students/{{studentId}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Statut HTTP 204', () => pm.response.to.have.status(204));",
+              "pm.test('Reponse vide', () => pm.expect(pm.response.text()).to.eql(''));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "20 - Lecture apres suppression",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/students/{{studentId}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Statut HTTP 404', () => pm.response.to.have.status(404));",
+              ""
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "21 - Modification apres suppression",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/students/{{studentId}}",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"firstName\": \"Test modifie\",\n  \"lastName\": \"Postman\",\n  \"email\": \"{{studentEmail}}\",\n  \"className\": \"TEST-API-UPDATE\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Statut HTTP 404', () => pm.response.to.have.status(404));",
+              ""
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "22 - Seconde suppression",
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": "{{baseUrl}}/api/students/{{studentId}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Statut HTTP 404', () => pm.response.to.have.status(404));",
+              ""
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "23 - Etudiant absent de la liste",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/students"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Statut HTTP 200', () => pm.response.to.have.status(200));",
+              "pm.test('Notre etudiant a disparu', () => {",
+              "  const data = pm.response.json();",
+              "  pm.expect(data).to.be.an('array');",
+              "  pm.expect(data.some(s => s.id === Number(pm.collectionVariables.get('studentId')))).to.eql(false);",
+              "});"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
